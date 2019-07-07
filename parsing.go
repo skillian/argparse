@@ -22,11 +22,12 @@ type parsingState struct {
 func (s *parsingState) init(p *ArgumentParser, args []string) {
 	s.parser = p
 	s.args = args
+	s.argi = 0
 	s.ns = make(Namespace)
 }
 
 func (s *parsingState) parse() error {
-	for s.argi = 0; s.argi < len(s.args); s.argi++ {
+	for s.argi < len(s.args) {
 		arg := s.args[s.argi]
 		a, ok := s.parser.Optionals[arg]
 		if ok {
@@ -74,18 +75,12 @@ func (s *parsingState) handle(a *Argument) error {
 				"argument %q expected 0 values, not %d",
 				a.Dest, len(args))
 		}
-		if err = a.Action(a, s.ns, []interface{}{a.Const}); err != nil {
-			return err
-		}
-		return nil
+		return a.Action(a, s.ns, []interface{}{a.Const})
 	case ZeroOrOne:
 		if len(args) == 0 {
-			if err = a.Action(a, s.ns, []interface{}{a.Const}); err != nil {
-				return err
-			}
-			return nil
+			return a.Action(a, s.ns, []interface{}{a.Const})
 		}
-		v, err := a.Type(args[0])
+		v, err := a.createValue(args[0])
 		if err != nil {
 			return errors.ErrorfWithCause(err, "%v failed", a.Type)
 		}
@@ -101,7 +96,7 @@ func (s *parsingState) handle(a *Argument) error {
 			return errors.Errorf(
 				"expected one or more arguments but got zero.")
 		case 1:
-			v, err := a.Type(args[0])
+			v, err := a.createValue(args[0])
 			if err != nil {
 				return errors.ErrorfWithCause(
 					err, "%v failed", a.Type)
@@ -112,7 +107,7 @@ func (s *parsingState) handle(a *Argument) error {
 	default:
 		vs := make([]interface{}, len(args))
 		for i, arg := range args {
-			v, err := a.Type(arg)
+			v, err := a.createValue(arg)
 			if err != nil {
 				return errors.ErrorfWithCause(
 					err, "%v failed", a.Type)

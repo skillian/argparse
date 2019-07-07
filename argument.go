@@ -47,6 +47,10 @@ type Argument struct {
 	// Type holds a function that can be used to parse a string value into
 	// the type desired by this argument.
 	Type ValueParser
+
+	// Choices holds an optional collection of allowed choices for this
+	// Argument.  Choices is nil if no set of allowed values was provided.
+	Choices *ArgumentChoices
 }
 
 // Optional returns whether or not this is an optional (flag) argument.  If
@@ -213,7 +217,6 @@ func Action(v string) ArgumentOption {
 	return func(a *Argument) error {
 		switch strings.ToLower(v) {
 		case "append":
-			a.Nargs = OneOrMore
 			a.Action = Append
 		case "store":
 			a.Nargs = 1
@@ -236,6 +239,15 @@ func Action(v string) ArgumentOption {
 	}
 }
 
+// ActionFunc lets you specify an action function value instead of just a string
+// key of an action function.
+func ActionFunc(f ArgumentAction) ArgumentOption {
+	return func(a *Argument) error {
+		a.Action = f
+		return nil
+	}
+}
+
 // ArgumentOption configures an Argument.
 type ArgumentOption func(a *Argument) error
 
@@ -245,7 +257,7 @@ type ArgumentAction func(a *Argument, ns Namespace, vs []interface{}) error
 
 // Append is an ArgumentAction that appends an encountered argument to
 func Append(a *Argument, ns Namespace, vs []interface{}) error {
-	ns.Append(a, vs...)
+	ns.Append(a, getArgValueForNS(a, vs))
 	return nil
 }
 
@@ -258,25 +270,29 @@ func Store(a *Argument, ns Namespace, vs []interface{}) error {
 			"argument %q already defined with value %v.",
 			a.Dest, v)
 	}
-	var v interface{}
-	if a.Nargs == 1 && len(vs) == 1 {
-		v = vs[0]
-	} else {
-		v = vs
-	}
-	ns.Set(a, v)
+	ns.Set(a, getArgValueForNS(a, vs))
 	return nil
+}
+
+func getArgValueForNS(a *Argument, vs []interface{}) interface{} {
+	if a.Nargs == 1 && len(vs) == 1 {
+		return vs[0]
+	}
+	return vs
 }
 
 // StoreTrue is an ArgumentAction that stores the true value in the given
 // namespace for the given argument.
 func StoreTrue(a *Argument, ns Namespace, vs []interface{}) error {
-	if len(vs) > 0 {
+	if len(vs) != 1 {
 		return errors.Errorf(
-			"no values expected for argument %q but got %d",
-			a.Dest, len(vs))
+			"no values expected for argument %q but got %v",
+			a.Dest, vs)
 	}
-	ns.Set(a, true)
+	if _, ok := vs[0].(bool); !ok {
+		return errors.NewUnexpectedType(false, vs[0])
+	}
+	ns.Set(a, vs[0])
 	return nil
 }
 
@@ -292,6 +308,22 @@ func StoreFalse(a *Argument, ns Namespace, vs []interface{}) error {
 	return nil
 }
 
+// Choices sets the argument's choices.
+func Choices(choices ...Choice) ArgumentOption {
+	return func(a *Argument) error {
+		a.Choices = NewChoices(choices...)
+		return nil
+	}
+}
+
+// ChoiceValues sets the argument's choices.
+func ChoiceValues(values ...interface{}) ArgumentOption {
+	return func(a *Argument) error {
+		a.Choices = NewChoiceValues(values...)
+		return nil
+	}
+}
+
 // Const sets the Const value for the given string
 func Const(v interface{}) ArgumentOption {
 	return func(a *Argument) error {
@@ -300,9 +332,16 @@ func Const(v interface{}) ArgumentOption {
 }
 
 // Default sets the default value of an argument.
-func Default(v string) ArgumentOption {
+func Default(v interface{}) ArgumentOption {
 	return func(a *Argument) error {
 		return setValue(&a.Default, "Default", v)
+	}
+}
+
+// Dest sets the destination name in the parsed argument namespace.
+func Dest(v string) ArgumentOption {
+	return func(a *Argument) error {
+		return setValue(&a.Dest, "Dest", v)
 	}
 }
 
@@ -381,4 +420,16 @@ func Type(t ValueParser) ArgumentOption {
 		a.Type = t
 		return nil
 	}
+}
+
+func (a *Argument) createValue(arg string) (interface{}, error) {
+	if a.Choices != nil {
+		v, ok := a.Choices.Load(arg)
+		if !ok {
+			return nil, errors.Errorf(
+				"invalid choice %q for %v", arg, a.Dest)
+		}
+		return v, nil
+	}
+	return a.Type(arg)
 }

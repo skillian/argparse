@@ -3,6 +3,7 @@ package argparse
 import (
 	"fmt"
 	"os"
+	"path/filepath"
 	"reflect"
 	"sort"
 	"strings"
@@ -64,7 +65,7 @@ func NewArgumentParser(options ...ArgumentParserOption) (*ArgumentParser, error)
 	}
 	// defaults:
 	if p.Prog == "" {
-		p.Prog = os.Args[0]
+		p.Prog = filepath.Base(os.Args[0])
 	}
 	return p, nil
 }
@@ -87,6 +88,9 @@ func (p *ArgumentParser) AddArgument(options ...ArgumentOption) (*Argument, erro
 		}
 	}
 	// defaults:
+	if a.Action == nil {
+		a.Action = Store
+	}
 	if a.Type == nil {
 		a.Type = String
 	}
@@ -101,7 +105,7 @@ func (p *ArgumentParser) AddArgument(options ...ArgumentOption) (*Argument, erro
 		}
 		a.Dest = dest
 	}
-	if len(a.MetaVar) == 0 && a.Nargs >= 0 {
+	if len(a.MetaVar) == 0 && a.Nargs > 0 {
 		a.MetaVar = []string{strings.ToUpper(a.Dest)}
 	}
 	// add to parser:

@@ -50,6 +50,9 @@ func (s *helpingState) format() (v string, err error) {
 		}
 	}()
 	s.addUsage()
+	if s.parser.Description != "" {
+		s.writeStrings(s.parser.Description, "\n\n")
+	}
 	s.addArguments(
 		"positional arguments:",
 		s.parser.Positionals,
@@ -87,7 +90,7 @@ func (s *helpingState) addUsage() {
 }
 
 func (s *helpingState) addArguments(prefix string, args []*Argument, sel helpHeaderSelector) {
-	if len(s.parser.Positionals) == 0 {
+	if len(args) == 0 {
 		return
 	}
 	s.writeStrings(prefix, "\n")
@@ -133,14 +136,18 @@ func (s *helpingState) writeStrings(vs ...string) {
 }
 
 func getShortestArgOptionString(a *Argument) string {
-	if len(a.OptionStrings) == 0 {
+	switch len(a.OptionStrings) {
+	case 0:
 		return ""
-	}
-	short := a.OptionStrings[0]
-	for _, s := range a.OptionStrings {
-		if len(s) < len(short) {
-			short = s
+	case 1:
+		return a.OptionStrings[0]
+	default:
+		short := a.OptionStrings[0]
+		for _, s := range a.OptionStrings[1:] {
+			if len(s) < len(short) {
+				short = s
+			}
 		}
+		return short
 	}
-	return short
 }
