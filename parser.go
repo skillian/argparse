@@ -36,10 +36,15 @@ type ArgumentParser struct {
 	// Epilog is trailing text added after the argument help.
 	Epilog string
 
+	// Subparsers holds a slice of sub-parsers when your top-level parser
+	// has different sub-commands.
+	Subparsers []*ArgumentParser
+
 	// Parents includes a collection of ArgumentParser objects whose
 	// arguments should be included in this ArgumentParser.  We're keeping
 	// it simple for now, though.
-	//Parents     []*ArgumentParser
+	//Parents []*ArgumentParser
+
 	//FormatterClass reflect.Type
 	//PrefixChars []rune
 	//FromFilePrefixChars []rune
@@ -50,6 +55,10 @@ type ArgumentParser struct {
 	// arguments to generate help output.  It is analogous to the add_help
 	// attribute on the ArgumentParser class in Python.
 	NoHelp bool
+
+	// boundArgs is a collection of arguments and their bound targets
+	// which are set after parsing arguments.
+	boundArgs
 }
 
 // NewArgumentParser constructs a new argument parser.
@@ -81,7 +90,7 @@ func MustNewArgumentParser(options ...ArgumentParserOption) *ArgumentParser {
 
 // AddArgument adds an argument to the argument parser.
 func (p *ArgumentParser) AddArgument(options ...ArgumentOption) (*Argument, error) {
-	a := new(Argument)
+	a := &Argument{parser: p}
 	for _, o := range options {
 		if err := o(a); err != nil {
 			return nil, err
@@ -136,7 +145,8 @@ func (p *ArgumentParser) MustAddArgument(options ...ArgumentOption) *Argument {
 }
 
 // ParseArgs parses the given args (or os.Args[1:], if none specified) to create
-// a namespace from those args.
+// a namespace from those args.  If any arguments were bound from an Argument,
+// those targets are assigned to.
 func (p *ArgumentParser) ParseArgs(args ...string) (Namespace, error) {
 	s := parsingState{}
 	if len(args) == 0 {
@@ -144,10 +154,23 @@ func (p *ArgumentParser) ParseArgs(args ...string) (Namespace, error) {
 	}
 	p.handleHelp(args)
 	s.init(p, args)
-	if err := s.parse(); err != nil {
+	var err error
+	if err = s.parse(); err != nil {
+		return nil, err
+	}
+	if err = p.boundArgs.setValues(s.ns); err != nil {
 		return nil, err
 	}
 	return s.ns, nil
+}
+
+// MustParseArgs calls ParseArgs and panics if an error is returned.
+func (p *ArgumentParser) MustParseArgs(args ...string) Namespace {
+	ns, err := p.ParseArgs(args...)
+	if err != nil {
+		panic(err)
+	}
+	return ns
 }
 
 func (p *ArgumentParser) getOptionals(sorted bool) []*Argument {
@@ -174,14 +197,18 @@ func (p *ArgumentParser) handleHelp(args []string) {
 		return
 	}
 	for _, arg := range args {
-		if arg == "-h" || arg == "--help" {
-			v, err := p.FormatHelp()
-			if err != nil {
-				v = err.Error()
-			}
-			fmt.Fprintln(os.Stderr, v)
-			os.Exit(1)
+		// TODO: Handle checking for help within subcommands.  Make
+		// this more like Python's ArgumentParser in which the help
+		// argument is just another argument in the set.
+		if arg != "-h" && arg != "--help" {
+			continue
 		}
+		v, err := p.FormatHelp()
+		if err != nil {
+			v = err.Error()
+		}
+		fmt.Fprintln(os.Stderr, v)
+		os.Exit(1)
 	}
 }
 

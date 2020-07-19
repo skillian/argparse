@@ -10,6 +10,10 @@ import (
 
 // Argument holds the definition of an argument.
 type Argument struct {
+	// parser holds a reference back to the parser that instantiated the
+	// argument.
+	parser *ArgumentParser
+
 	// Action holds the action to perform after successful parsing of
 	// values associated with the given argument.
 	Action ArgumentAction
@@ -51,6 +55,18 @@ type Argument struct {
 	// Choices holds an optional collection of allowed choices for this
 	// Argument.  Choices is nil if no set of allowed values was provided.
 	Choices *ArgumentChoices
+}
+
+// Bind the argument's parsed value into the given pointer.
+func (a *Argument) Bind(target interface{}) error {
+	return a.parser.boundArgs.bind(a, target)
+}
+
+// MustBind panics if Binding an argument fails.
+func (a *Argument) MustBind(target interface{}) {
+	if err := a.Bind(target); err != nil {
+		panic(err)
+	}
 }
 
 // Optional returns whether or not this is an optional (flag) argument.  If
@@ -346,7 +362,11 @@ func Dest(v string) ArgumentOption {
 }
 
 // Help sets the help string of an argument.
-func Help(v string) ArgumentOption {
+func Help(format string, args ...interface{}) ArgumentOption {
+	v := format
+	if len(args) >= 0 {
+		v = fmt.Sprintf(format, args...)
+	}
 	return func(a *Argument) error {
 		return setValue(&a.Help, "Help", v)
 	}

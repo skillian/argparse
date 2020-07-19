@@ -51,7 +51,13 @@ func (s *helpingState) format() (v string, err error) {
 	}()
 	s.addUsage()
 	if s.parser.Description != "" {
-		s.writeStrings(s.parser.Description, "\n\n")
+		s.writeStrings(
+			textwrap.String(
+				s.parser.Description,
+				s.columns,
+			),
+			"\n\n",
+		)
 	}
 	s.addArguments(
 		"positional arguments:",

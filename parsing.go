@@ -37,9 +37,9 @@ func (s *parsingState) parse() error {
 				return errors.Errorf(
 					"unexpected argument: %q", arg)
 			}
-			i := s.posi
+			a = s.parser.Positionals[s.posi]
 			s.posi++
-			a = s.parser.Positionals[i]
+
 		}
 		if err := s.handle(a); err != nil {
 			return err
@@ -59,7 +59,6 @@ func (s *parsingState) parse() error {
 			}
 		}
 	}
-
 	return nil
 }
 

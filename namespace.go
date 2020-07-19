@@ -40,6 +40,38 @@ func (ns Namespace) MustGet(a *Argument) interface{} {
 	return v
 }
 
+// GetStrings is a helper function to get an argument's associated values as
+// a slice of strings.
+func (ns Namespace) GetStrings(a *Argument) ([]string, error) {
+	v := ns.MustGet(a)
+	vs, ok := v.([]interface{})
+	if !ok {
+		return nil, errors.Errorf(
+			"%v (type: %T) is not %v (type: %T)", v, v, vs, vs)
+	}
+	ss := make([]string, len(vs))
+	for i, v := range vs {
+		ss[i], ok = v.(string)
+		if !ok {
+			return nil, errors.Errorf(
+				"index %d of argument %v is %v (type: %T), "+
+					"not type %T",
+				i, a, v, v, "")
+		}
+	}
+	return ss, nil
+}
+
+// MustGetStrings is a helper function to return an argument's values as a
+// slice of strings.
+func (ns Namespace) MustGetStrings(a *Argument) []string {
+	ss, err := ns.GetStrings(a)
+	if err != nil {
+		panic(err)
+	}
+	return ss
+}
+
 // Set a value in the namespace for the given Arg.
 func (ns Namespace) Set(a *Argument, v interface{}) {
 	ns[a.Dest] = v
