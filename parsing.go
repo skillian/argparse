@@ -53,7 +53,7 @@ func (s *parsingState) parse() error {
 					"missing required argument %q", a.Dest)
 			}
 			if a.Default != nil {
-				if err := a.Action(a, s.ns, []interface{}{a.Default}); err != nil {
+				if err := a.Action.UpdateNamespace(a, s.ns, []interface{}{a.Default}); err != nil {
 					return err
 				}
 			}
@@ -74,19 +74,19 @@ func (s *parsingState) handle(a *Argument) error {
 				"argument %q expected 0 values, not %d",
 				a.Dest, len(args))
 		}
-		return a.Action(a, s.ns, []interface{}{a.Const})
+		return a.Action.UpdateNamespace(a, s.ns, []interface{}{a.Const})
 	case ZeroOrOne:
 		if len(args) == 0 {
-			return a.Action(a, s.ns, []interface{}{a.Const})
+			return a.Action.UpdateNamespace(a, s.ns, []interface{}{a.Const})
 		}
 		v, err := a.createValue(args[0])
 		if err != nil {
 			return errors.ErrorfWithCause(err, "%v failed", a.Type)
 		}
-		return a.Action(a, s.ns, []interface{}{v})
+		return a.Action.UpdateNamespace(a, s.ns, []interface{}{v})
 	case ZeroOrMore:
 		if len(args) == 0 {
-			return a.Action(a, s.ns, []interface{}{a.Const})
+			return a.Action.UpdateNamespace(a, s.ns, []interface{}{a.Const})
 		}
 		fallthrough
 	case OneOrMore:
@@ -100,7 +100,7 @@ func (s *parsingState) handle(a *Argument) error {
 				return errors.ErrorfWithCause(
 					err, "%v failed", a.Type)
 			}
-			return a.Action(a, s.ns, []interface{}{v})
+			return a.Action.UpdateNamespace(a, s.ns, []interface{}{v})
 		}
 		fallthrough
 	default:
@@ -113,7 +113,7 @@ func (s *parsingState) handle(a *Argument) error {
 			}
 			vs[i] = v
 		}
-		return a.Action(a, s.ns, vs)
+		return a.Action.UpdateNamespace(a, s.ns, vs)
 	}
 }
 

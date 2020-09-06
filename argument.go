@@ -231,25 +231,29 @@ func sscanf(s, f string, p interface{}) error {
 // action parameter when set to a string value.
 func Action(v string) ArgumentOption {
 	return func(a *Argument) error {
-		switch strings.ToLower(v) {
-		case "append":
-			a.Action = Append
-		case "store":
-			a.Nargs = 1
-			a.Action = Store
-		case "store_true":
+		key := strings.TrimSpace(strings.ToLower(v))
+		act, ok := actions[key]
+		if !ok {
+			return errors.Errorf(
+				"unrecognized %v: %q", "Action", v)
+		}
+		a.Action = act
+		switch act {
+		case Store:
+			a.Nargs = func(a *Argument) int {
+				if a.Nargs < 1 {
+					return 1
+				}
+				return a.Nargs
+			}(a)
+		case StoreTrue:
 			a.Default = false
 			a.Const = true
 			a.Nargs = 0
-			a.Action = StoreTrue
-		case "store_false":
+		case StoreFalse:
 			a.Default = true
 			a.Const = false
 			a.Nargs = 0
-			a.Action = StoreFalse
-		default:
-			return errors.Errorf(
-				"unrecognized value")
 		}
 		return nil
 	}
@@ -258,10 +262,7 @@ func Action(v string) ArgumentOption {
 // ActionFunc lets you specify an action function value instead of just a string
 // key of an action function.
 func ActionFunc(f ArgumentAction) ArgumentOption {
-	return func(a *Argument) error {
-		a.Action = f
-		return nil
-	}
+	return Action(f.Name())
 }
 
 // ArgumentOption configures an Argument.
@@ -269,59 +270,97 @@ type ArgumentOption func(a *Argument) error
 
 // ArgumentAction is called when an argument's values are parsed from the
 // command line.
-type ArgumentAction func(a *Argument, ns Namespace, vs []interface{}) error
-
-// Append is an ArgumentAction that appends an encountered argument to
-func Append(a *Argument, ns Namespace, vs []interface{}) error {
-	ns.Append(a, getArgValueForNS(a, vs))
-	return nil
+type ArgumentAction interface {
+	Name() string
+	UpdateNamespace(a *Argument, ns Namespace, vs []interface{}) error
 }
 
-// Store is an ArgumentAction that sets the value associated with the given
-// argument.  If that argument already has a value in the given namespace,
-// an error is returned.
-func Store(a *Argument, ns Namespace, vs []interface{}) error {
-	if v, ok := ns.Get(a); ok {
-		return errors.Errorf(
-			"argument %q already defined with value %v.",
-			a.Dest, v)
+type argumentActionStruct struct {
+	name            string
+	updateNamespace func(a *Argument, ns Namespace, vs []interface{}) error
+}
+
+func makeArgumentActionStruct(name string, f func(a *Argument, ns Namespace, vs []interface{}) error) argumentActionStruct {
+	if _, ok := actions[name]; ok {
+		panic("redefinition of argument action: " + name)
 	}
-	ns.Set(a, getArgValueForNS(a, vs))
-	return nil
+	s := argumentActionStruct{name: name, updateNamespace: f}
+	actions[name] = s
+	return s
 }
+
+func (s argumentActionStruct) Name() string { return s.name }
+func (s argumentActionStruct) UpdateNamespace(a *Argument, ns Namespace, vs []interface{}) error {
+	return s.updateNamespace(a, ns, vs)
+}
+
+var (
+	actions = make(map[string]ArgumentAction, 4)
+
+	// Append is an ArgumentAction that appends an encountered argument to
+	Append ArgumentAction = makeArgumentActionStruct(
+		"append",
+		func(a *Argument, ns Namespace, vs []interface{}) error {
+			ns.Append(a, getArgValueForNS(a, vs))
+			return nil
+		},
+	)
+
+	// Store is an ArgumentAction that sets the value associated with the
+	// given argument.  If that argument already has a value in the given
+	// namespace, an error is returned.
+	Store ArgumentAction = makeArgumentActionStruct(
+		"store",
+		func(a *Argument, ns Namespace, vs []interface{}) error {
+			if v, ok := ns.Get(a); ok {
+				return errors.Errorf(
+					"argument %q already defined with value %v.",
+					a.Dest, v)
+			}
+			ns.Set(a, getArgValueForNS(a, vs))
+			return nil
+		},
+	)
+
+	// StoreTrue is an ArgumentAction that stores the true value in the
+	// given namespace for the given argument.
+	StoreTrue ArgumentAction = makeArgumentActionStruct(
+		"store_true",
+		func(a *Argument, ns Namespace, vs []interface{}) error {
+			if len(vs) != 1 {
+				return errors.Errorf(
+					"no values expected for argument %q but got %v",
+					a.Dest, vs)
+			}
+			if _, ok := vs[0].(bool); !ok {
+				return errors.NewUnexpectedType(false, vs[0])
+			}
+			ns.Set(a, vs[0])
+			return nil
+		},
+	)
+
+	// StoreFalse is an ArgumentAction that stores the false value in the given
+	// namespace for the given argument.
+	StoreFalse ArgumentAction = makeArgumentActionStruct(
+		"store_false",
+		func(a *Argument, ns Namespace, vs []interface{}) error {
+			if len(vs) > 0 {
+				return errors.Errorf(
+					"no values expected for argument %q but got %d",
+					a.Dest, len(vs))
+			}
+			ns.Set(a, false)
+			return nil
+		},
+	)
+)
 
 func getArgValueForNS(a *Argument, vs []interface{}) interface{} {
 	if a.Nargs == 1 && len(vs) == 1 {
 		return vs[0]
 	}
 	return vs
-}
-
-// StoreTrue is an ArgumentAction that stores the true value in the given
-// namespace for the given argument.
-func StoreTrue(a *Argument, ns Namespace, vs []interface{}) error {
-	if len(vs) != 1 {
-		return errors.Errorf(
-			"no values expected for argument %q but got %v",
-			a.Dest, vs)
-	}
-	if _, ok := vs[0].(bool); !ok {
-		return errors.NewUnexpectedType(false, vs[0])
-	}
-	ns.Set(a, vs[0])
-	return nil
-}
-
-// StoreFalse is an ArgumentAction that stores the false value in the given
-// namespace for the given argument.
-func StoreFalse(a *Argument, ns Namespace, vs []interface{}) error {
-	if len(vs) > 0 {
-		return errors.Errorf(
-			"no values expected for argument %q but got %d",
-			a.Dest, len(vs))
-	}
-	ns.Set(a, false)
-	return nil
 }
 
 // Choices sets the argument's choices.
