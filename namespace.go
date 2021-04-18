@@ -62,8 +62,8 @@ func (ns Namespace) GetStrings(a *Argument) ([]string, error) {
 	return ss, nil
 }
 
-// MustGetStrings is a helper function to return an argument's values as a
-// slice of strings.
+// MustGetStrings gets the arguments associated with a as a slice of strings.
+// This function panics if a's values are not a slice of strings.
 func (ns Namespace) MustGetStrings(a *Argument) []string {
 	ss, err := ns.GetStrings(a)
 	if err != nil {

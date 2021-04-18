@@ -164,7 +164,7 @@ func (p *ArgumentParser) ParseArgs(args ...string) (Namespace, error) {
 	return s.ns, nil
 }
 
-// MustParseArgs calls ParseArgs and panics if an error is returned.
+// MustParseArgs must parse its arguments or it will panic.
 func (p *ArgumentParser) MustParseArgs(args ...string) Namespace {
 	ns, err := p.ParseArgs(args...)
 	if err != nil {
