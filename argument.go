@@ -280,7 +280,7 @@ type argumentActionStruct struct {
 	updateNamespace func(a *Argument, ns Namespace, vs []interface{}) error
 }
 
-func makeArgumentActionStruct(name string, f func(a *Argument, ns Namespace, vs []interface{}) error) argumentActionStruct {
+func newArgumentActionStruct(name string, f func(a *Argument, ns Namespace, vs []interface{}) error) argumentActionStruct {
 	if _, ok := actions[name]; ok {
 		panic("redefinition of argument action: " + name)
 	}
@@ -298,7 +298,7 @@ var (
 	actions = make(map[string]ArgumentAction, 4)
 
 	// Append is an ArgumentAction that appends an encountered argument to
-	Append ArgumentAction = makeArgumentActionStruct(
+	Append ArgumentAction = newArgumentActionStruct(
 		"append",
 		func(a *Argument, ns Namespace, vs []interface{}) error {
 			ns.Append(a, getArgValueForNS(a, vs))
@@ -309,7 +309,7 @@ var (
 	// Store is an ArgumentAction that sets the value associated with the
 	// given argument.  If that argument already has a value in the given
 	// namespace, an error is returned.
-	Store ArgumentAction = makeArgumentActionStruct(
+	Store ArgumentAction = newArgumentActionStruct(
 		"store",
 		func(a *Argument, ns Namespace, vs []interface{}) error {
 			if v, ok := ns.Get(a); ok {
@@ -324,7 +324,7 @@ var (
 
 	// StoreTrue is an ArgumentAction that stores the true value in the
 	// given namespace for the given argument.
-	StoreTrue ArgumentAction = makeArgumentActionStruct(
+	StoreTrue ArgumentAction = newArgumentActionStruct(
 		"store_true",
 		func(a *Argument, ns Namespace, vs []interface{}) error {
 			if len(vs) != 1 {
@@ -342,7 +342,7 @@ var (
 
 	// StoreFalse is an ArgumentAction that stores the false value in the given
 	// namespace for the given argument.
-	StoreFalse ArgumentAction = makeArgumentActionStruct(
+	StoreFalse ArgumentAction = newArgumentActionStruct(
 		"store_false",
 		func(a *Argument, ns Namespace, vs []interface{}) error {
 			if len(vs) > 0 {
