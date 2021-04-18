@@ -29,6 +29,7 @@ func (bs *boundArgs) bind(a *Argument, t interface{}) error {
 			v.Kind(), t,
 		)
 	}
+	v = v.Elem()
 	*bs = append(*bs, boundArg{a, v})
 	return nil
 }
