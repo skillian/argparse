@@ -280,11 +280,11 @@ type argumentActionStruct struct {
 	updateNamespace func(a *Argument, ns Namespace, vs []interface{}) error
 }
 
-func newArgumentActionStruct(name string, f func(a *Argument, ns Namespace, vs []interface{}) error) argumentActionStruct {
+func newArgumentActionStruct(name string, f func(a *Argument, ns Namespace, vs []interface{}) error) *argumentActionStruct {
 	if _, ok := actions[name]; ok {
 		panic("redefinition of argument action: " + name)
 	}
-	s := argumentActionStruct{name: name, updateNamespace: f}
+	s := &argumentActionStruct{name: name, updateNamespace: f}
 	actions[name] = s
 	return s
 }
