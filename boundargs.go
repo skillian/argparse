@@ -17,10 +17,8 @@ type boundArg struct {
 type boundArgs []boundArg
 
 func (bs *boundArgs) bind(a *Argument, t interface{}) error {
-	if Debug {
-		if err := bs.ensureNotAlreadyBound(a); err != nil {
-			return err
-		}
+	if err := bs.ensureNotAlreadyBound(a); err != nil {
+		return err
 	}
 	v := reflect.ValueOf(t)
 	if v.Kind() != reflect.Ptr {
@@ -61,16 +59,14 @@ func (bs boundArgs) setValues(ns Namespace) error {
 			)
 		}
 		v := reflect.ValueOf(i)
-		if Debug {
-			if !v.Type().AssignableTo(b.Target.Type()) {
-				return errors.Errorf(
-					"cannot assign value %v (type: %T) to "+
-						"target of type: %v",
-					i, i, b.Target.Type(),
-				)
-			}
+		if !v.Type().AssignableTo(b.Target.Type()) {
+			return errors.Errorf(
+				"cannot assign value %v (type: %T) to "+
+					"target of type: %v",
+				i, i, b.Target.Type(),
+			)
 		}
-		b.Target.Elem().Set(v)
+		b.Target.Set(v)
 	}
 	return nil
 }
