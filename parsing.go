@@ -33,7 +33,11 @@ func (s *parsingState) parse() error {
 		if ok {
 			s.argi++
 		} else {
+			// TODO: Check Subparsers before checking
+			// positionals.
 			if s.posi >= len(s.parser.Positionals) {
+				// TODO: Return to parent parser if
+				// exists instead of producing error.
 				return errors.Errorf(
 					"unexpected argument: %q", arg)
 			}
