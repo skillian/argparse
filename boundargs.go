@@ -58,15 +58,46 @@ func (bs boundArgs) setValues(ns Namespace) error {
 				b.Argument,
 			)
 		}
-		v := reflect.ValueOf(i)
-		if !v.Type().AssignableTo(b.Target.Type()) {
-			return errors.Errorf(
-				"cannot assign value %v (type: %T) to "+
-					"target of type: %v",
-				i, i, b.Target.Type(),
-			)
+		if err := reflectSetValue(b.Target, reflect.ValueOf(i)); err != nil {
+			return err
 		}
-		b.Target.Set(v)
+	}
+	return nil
+}
+
+func reflectSetValue(target, value reflect.Value) error {
+	tt, vt := target.Type(), value.Type()
+	switch {
+	case vt.ConvertibleTo(tt):
+		value = value.Convert(tt)
+		fallthrough
+	case vt.AssignableTo(tt):
+		target.Set(value)
+	case vt.Kind() == reflect.Slice && tt.Kind() == reflect.Slice:
+		length := value.Len()
+		ts := target
+		if ts.Cap() < length {
+			ts = reflect.MakeSlice(tt, 0, value.Cap())
+		} else {
+			ts = ts.Slice(0, 0)
+		}
+		tz := reflect.Zero(tt.Elem())
+		for i := 0; i < length; i++ {
+			ts = reflect.Append(ts, tz)
+			if err := reflectSetValue(
+				ts.Index(i),
+				value.Index(i).Elem(),
+			); err != nil {
+				return err
+			}
+		}
+		target.Set(ts)
+	default:
+		return errors.Errorf(
+			"cannot assign value %[1]v (type: %[1]T) to "+
+				"target of type: %[2]v",
+			value, target,
+		)
 	}
 	return nil
 }

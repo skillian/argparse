@@ -69,7 +69,9 @@ func NewArgumentParser(options ...ArgumentParserOption) (*ArgumentParser, error)
 		if err := o(p); err != nil {
 			return nil, errors.ErrorfWithCause(
 				err,
-				"error initializing instance of %T", p)
+				"error initializing %[1]v "+
+					"(type: %[1]T)", p,
+			)
 		}
 	}
 	// defaults:

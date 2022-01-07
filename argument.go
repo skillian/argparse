@@ -164,7 +164,7 @@ func Int32(v string) (interface{}, error) {
 // Int64 converts the given string into a int value.
 // It implements the ValueParser interface.
 func Int64(v string) (interface{}, error) {
-	var i int
+	var i int64
 	err := sscanf(v, "%d", &i)
 	return i, err
 }
@@ -230,22 +230,28 @@ func sscanf(s, f string, p interface{}) error {
 // it works similarly to Python's argparse.ArgumentParser.add_argument's
 // action parameter when set to a string value.
 func Action(v string) ArgumentOption {
-	return func(a *Argument) error {
-		key := strings.TrimSpace(strings.ToLower(v))
-		act, ok := actions[key]
-		if !ok {
+	key := strings.TrimSpace(strings.ToLower(v))
+	act, ok := actions[key]
+	if !ok {
+		return func(a *Argument) error {
 			return errors.Errorf(
-				"unrecognized %v: %q", "Action", v)
+				"unrecognized %v: %q", "Action", v,
+			)
 		}
-		a.Action = act
-		switch act {
+	}
+	return ActionFunc(act)
+}
+
+// ActionFunc lets you specify an action function value instead of just a string
+// key of an action function.
+func ActionFunc(f ArgumentAction) ArgumentOption {
+	return func(a *Argument) error {
+		a.Action = f
+		switch f {
 		case Store:
-			a.Nargs = func(a *Argument) int {
-				if a.Nargs < 1 {
-					return 1
-				}
-				return a.Nargs
-			}(a)
+			if a.Nargs < 1 {
+				a.Nargs = 1
+			}
 		case StoreTrue:
 			a.Default = false
 			a.Const = true
@@ -257,12 +263,6 @@ func Action(v string) ArgumentOption {
 		}
 		return nil
 	}
-}
-
-// ActionFunc lets you specify an action function value instead of just a string
-// key of an action function.
-func ActionFunc(f ArgumentAction) ArgumentOption {
-	return Action(f.Name())
 }
 
 // ArgumentOption configures an Argument.
@@ -290,8 +290,8 @@ func newArgumentActionStruct(name string, f func(a *Argument, ns Namespace, vs [
 }
 
 func (s argumentActionStruct) Name() string { return s.name }
-func (s argumentActionStruct) UpdateNamespace(a *Argument, ns Namespace, vs []interface{}) error {
-	return s.updateNamespace(a, ns, vs)
+func (s argumentActionStruct) UpdateNamespace(a *Argument, ns Namespace, args []interface{}) error {
+	return s.updateNamespace(a, ns, args)
 }
 
 var (
@@ -300,7 +300,11 @@ var (
 	// Append is an ArgumentAction that appends an encountered argument to
 	Append ArgumentAction = newArgumentActionStruct(
 		"append",
-		func(a *Argument, ns Namespace, vs []interface{}) error {
+		func(a *Argument, ns Namespace, args []interface{}) error {
+			vs, err := a.defaultCreateValues(args)
+			if err != nil {
+				return err
+			}
 			ns.Append(a, getArgValueForNS(a, vs))
 			return nil
 		},
@@ -311,11 +315,15 @@ var (
 	// namespace, an error is returned.
 	Store ArgumentAction = newArgumentActionStruct(
 		"store",
-		func(a *Argument, ns Namespace, vs []interface{}) error {
+		func(a *Argument, ns Namespace, args []interface{}) error {
 			if v, ok := ns.Get(a); ok {
 				return errors.Errorf(
 					"argument %q already defined with value %v.",
 					a.Dest, v)
+			}
+			vs, err := a.defaultCreateValues(args)
+			if err != nil {
+				return err
 			}
 			ns.Set(a, getArgValueForNS(a, vs))
 			return nil
@@ -326,16 +334,13 @@ var (
 	// given namespace for the given argument.
 	StoreTrue ArgumentAction = newArgumentActionStruct(
 		"store_true",
-		func(a *Argument, ns Namespace, vs []interface{}) error {
-			if len(vs) != 1 {
+		func(a *Argument, ns Namespace, args []interface{}) error {
+			if len(args) > 0 {
 				return errors.Errorf(
-					"no values expected for argument %q but got %v",
-					a.Dest, vs)
+					"no values expected for argument %q but got %d",
+					a.Dest, len(args))
 			}
-			if _, ok := vs[0].(bool); !ok {
-				return errors.NewUnexpectedType(false, vs[0])
-			}
-			ns.Set(a, vs[0])
+			ns.Set(a, true)
 			return nil
 		},
 	)
@@ -344,11 +349,11 @@ var (
 	// namespace for the given argument.
 	StoreFalse ArgumentAction = newArgumentActionStruct(
 		"store_false",
-		func(a *Argument, ns Namespace, vs []interface{}) error {
-			if len(vs) > 0 {
+		func(a *Argument, ns Namespace, args []interface{}) error {
+			if len(args) > 0 {
 				return errors.Errorf(
 					"no values expected for argument %q but got %d",
-					a.Dest, len(vs))
+					a.Dest, len(args))
 			}
 			ns.Set(a, false)
 			return nil
@@ -481,14 +486,31 @@ func Type(t ValueParser) ArgumentOption {
 	}
 }
 
-func (a *Argument) createValue(arg string) (interface{}, error) {
+func (a *Argument) defaultCreateValues(args []interface{}) (vs []interface{}, err error) {
+	vs = make([]interface{}, len(args))
 	if a.Choices != nil {
-		v, ok := a.Choices.Load(arg)
-		if !ok {
-			return nil, errors.Errorf(
-				"invalid choice %q for %v", arg, a.Dest)
+		for i, arg := range args {
+			v, ok := a.Choices.Load(stringOf(arg))
+			if !ok {
+				return nil, errors.Errorf(
+					"invalid choice %q for %v", v, a.Dest,
+				)
+			}
+			vs[i] = v
 		}
-		return v, nil
+		return
 	}
-	return a.Type(arg)
+	for i, arg := range args {
+		if vs[i], err = a.Type(stringOf(arg)); err != nil {
+			return
+		}
+	}
+	return
+}
+
+func stringOf(v interface{}) string {
+	if s, ok := v.(string); ok {
+		return s
+	}
+	return fmt.Sprint(v)
 }

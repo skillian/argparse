@@ -75,18 +75,3 @@ func (cs *ArgumentChoices) Load(key string) (value interface{}, ok bool) {
 	value = cs.items[index].Value
 	return
 }
-
-// Store a choice in the collection by its key.  The return value, existing,
-// is true if there was an existing value in the Choices collection associated
-// with the key.
-func (cs *ArgumentChoices) Store(key string, value interface{}) (existing bool) {
-	var index int
-	index, existing = cs.index[key]
-	if !existing {
-		index = len(cs.items)
-		cs.items = append(cs.items, Choice{Key: key, Value: value})
-		return
-	}
-	cs.items[index].Value = value
-	return
-}

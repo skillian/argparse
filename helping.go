@@ -105,7 +105,7 @@ func (s *helpingState) addArguments(prefix string, args []*Argument, sel helpHea
 		head := sel(a)
 		s.writeStrings("  ", head)
 		s.coli = 2 + len(head)
-		if s.coli < s.indent {
+		if s.coli <= s.indent - 2 {
 			s.writeStrings(s.colspcs[:s.indent-s.coli])
 		} else {
 			s.writeStrings("\n", s.colspcs[:s.indent])

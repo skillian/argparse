@@ -79,11 +79,7 @@ func (s *parsingState) handle(a *Argument) error {
 		if len(args) == 0 {
 			return a.Action.UpdateNamespace(a, s.ns, []interface{}{a.Const})
 		}
-		v, err := a.createValue(args[0])
-		if err != nil {
-			return errors.ErrorfWithCause(err, "%v failed", a.Type)
-		}
-		return a.Action.UpdateNamespace(a, s.ns, []interface{}{v})
+		return a.Action.UpdateNamespace(a, s.ns, []interface{}{args[0]})
 	case ZeroOrMore:
 		if len(args) == 0 {
 			return a.Action.UpdateNamespace(a, s.ns, []interface{}{a.Const})
@@ -95,23 +91,13 @@ func (s *parsingState) handle(a *Argument) error {
 			return errors.Errorf(
 				"expected one or more arguments but got zero.")
 		case 1:
-			v, err := a.createValue(args[0])
-			if err != nil {
-				return errors.ErrorfWithCause(
-					err, "%v failed", a.Type)
-			}
-			return a.Action.UpdateNamespace(a, s.ns, []interface{}{v})
+			return a.Action.UpdateNamespace(a, s.ns, []interface{}{args[0]})
 		}
 		fallthrough
 	default:
 		vs := make([]interface{}, len(args))
 		for i, arg := range args {
-			v, err := a.createValue(arg)
-			if err != nil {
-				return errors.ErrorfWithCause(
-					err, "%v failed", a.Type)
-			}
-			vs[i] = v
+			vs[i] = arg
 		}
 		return a.Action.UpdateNamespace(a, s.ns, vs)
 	}
