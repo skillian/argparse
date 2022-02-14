@@ -51,12 +51,16 @@ func (bs boundArgs) setValues(ns Namespace) error {
 	for _, b := range bs {
 		i, ok := ns[b.Dest]
 		if !ok {
+			if err := reflectSetValue(b.Target, reflect.Zero(b.Target.Type())); err != nil {
+				return err
+			}
+			continue
 			// TODO: Is this an error, or should we just use a zero
 			// value or something?
-			return errors.Errorf(
-				"unable to get value for argument %v",
-				b.Argument,
-			)
+			// return errors.Errorf(
+			// 	"unable to get value for argument %v",
+			// 	b.Argument,
+			// )
 		}
 		if err := reflectSetValue(b.Target, reflect.ValueOf(i)); err != nil {
 			return err
@@ -66,6 +70,10 @@ func (bs boundArgs) setValues(ns Namespace) error {
 }
 
 func reflectSetValue(target, value reflect.Value) error {
+	logger.Verbose(
+		"assigning to %v (type: %v) from %v (type: %v)",
+		target, target.Type(), value, value.Type(),
+	)
 	tt, vt := target.Type(), value.Type()
 	switch {
 	case vt.ConvertibleTo(tt):
@@ -96,7 +104,7 @@ func reflectSetValue(target, value reflect.Value) error {
 		return errors.Errorf(
 			"cannot assign value %[1]v (type: %[1]T) to "+
 				"target of type: %[2]v",
-			value, target,
+			value.Interface(), target,
 		)
 	}
 	return nil

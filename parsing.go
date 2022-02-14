@@ -43,7 +43,6 @@ func (s *parsingState) parse() error {
 			}
 			a = s.parser.Positionals[s.posi]
 			s.posi++
-
 		}
 		if err := s.handle(a); err != nil {
 			return err

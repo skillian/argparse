@@ -335,12 +335,12 @@ var (
 	StoreTrue ArgumentAction = newArgumentActionStruct(
 		"store_true",
 		func(a *Argument, ns Namespace, args []interface{}) error {
-			if len(args) > 0 {
+			if len(args) != 1 {
 				return errors.Errorf(
-					"no values expected for argument %q but got %d",
-					a.Dest, len(args))
+					"one value expected for argument %q but got %d: %#v",
+					a.Dest, len(args), args)
 			}
-			ns.Set(a, true)
+			ns.Set(a, args[0])
 			return nil
 		},
 	)
@@ -350,12 +350,12 @@ var (
 	StoreFalse ArgumentAction = newArgumentActionStruct(
 		"store_false",
 		func(a *Argument, ns Namespace, args []interface{}) error {
-			if len(args) > 0 {
+			if len(args) != 1 {
 				return errors.Errorf(
-					"no values expected for argument %q but got %d",
-					a.Dest, len(args))
+					"one value expected for argument %q but got %d: %#v",
+					a.Dest, len(args), args)
 			}
-			ns.Set(a, false)
+			ns.Set(a, args[0])
 			return nil
 		},
 	)
