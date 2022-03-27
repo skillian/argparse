@@ -55,12 +55,6 @@ func (bs boundArgs) setValues(ns Namespace) error {
 				return err
 			}
 			continue
-			// TODO: Is this an error, or should we just use a zero
-			// value or something?
-			// return errors.Errorf(
-			// 	"unable to get value for argument %v",
-			// 	b.Argument,
-			// )
 		}
 		if err := reflectSetValue(b.Target, reflect.ValueOf(i)); err != nil {
 			return err

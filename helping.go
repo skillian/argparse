@@ -69,6 +69,12 @@ func (s *helpingState) format() (v string, err error) {
 		func(a *Argument) string {
 			return strings.Join(a.OptionStrings, ", ")
 		})
+	if len(s.parser.Epilog) > 0 {
+		s.builder.WriteByte('\n')
+		s.builder.WriteString(
+			textwrap.String(s.parser.Epilog, s.columns),
+		)
+	}
 	return s.builder.String(), nil
 }
 
@@ -105,7 +111,7 @@ func (s *helpingState) addArguments(prefix string, args []*Argument, sel helpHea
 		head := sel(a)
 		s.writeStrings("  ", head)
 		s.coli = 2 + len(head)
-		if s.coli <= s.indent - 2 {
+		if s.coli <= s.indent-2 {
 			s.writeStrings(s.colspcs[:s.indent-s.coli])
 		} else {
 			s.writeStrings("\n", s.colspcs[:s.indent])
