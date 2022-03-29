@@ -116,8 +116,17 @@ func (p *ArgumentParser) AddArgument(options ...ArgumentOption) (*Argument, erro
 		}
 		a.Dest = dest
 	}
-	if len(a.MetaVar) == 0 && a.Nargs > 0 {
-		a.MetaVar = []string{strings.ToUpper(a.Dest)}
+	if len(a.MetaVar) == 0 && a.Nargs != 0 {
+		upper := strings.ToUpper(a.Dest)
+		if a.Nargs < 0 || a.Nargs == 1 {
+			a.MetaVar = []string{upper}
+		} else {
+			a.MetaVar = make([]string, a.Nargs)
+			for i := range a.MetaVar {
+				a.MetaVar[i] = upper
+			}
+		}
+
 	}
 	// add to parser:
 	if a.Optional() {

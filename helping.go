@@ -62,12 +62,26 @@ func (s *helpingState) format() (v string, err error) {
 	s.addArguments(
 		"positional arguments:",
 		s.parser.Positionals,
-		func(a *Argument) string { return a.Dest })
+		func(a *Argument, sb *strings.Builder) {
+			sb.WriteString(a.Dest)
+		})
 	s.addArguments(
 		"optional arguments:",
 		s.opts,
-		func(a *Argument) string {
-			return strings.Join(a.OptionStrings, ", ")
+		func(a *Argument, sb *strings.Builder) {
+			for i, opt := range a.OptionStrings {
+				if i > 0 {
+					sb.WriteString(", ")
+				}
+				sb.WriteString(opt)
+				sb.WriteByte(' ')
+				for j, mv := range a.MetaVar {
+					if j > 0 {
+						sb.WriteByte(' ')
+					}
+					sb.WriteString(mv)
+				}
+			}
 		})
 	if len(s.parser.Epilog) > 0 {
 		s.builder.WriteByte('\n')
@@ -108,9 +122,10 @@ func (s *helpingState) addArguments(prefix string, args []*Argument, sel helpHea
 	s.writeStrings(prefix, "\n")
 	s.coli = 0
 	for _, a := range args {
-		head := sel(a)
-		s.writeStrings("  ", head)
-		s.coli = 2 + len(head)
+		s.writeStrings("  ")
+		beforeHead := s.builder.Len()
+		sel(a, &s.builder)
+		s.coli = 2 + (s.builder.Len() - beforeHead)
 		if s.coli <= s.indent-2 {
 			s.writeStrings(s.colspcs[:s.indent-s.coli])
 		} else {
@@ -125,7 +140,7 @@ func (s *helpingState) addArguments(prefix string, args []*Argument, sel helpHea
 	s.writeStrings("\n")
 }
 
-type helpHeaderSelector func(a *Argument) string
+type helpHeaderSelector func(a *Argument, sb *strings.Builder)
 
 func (s *helpingState) argUsage(a *Argument) string {
 	var parts []string
