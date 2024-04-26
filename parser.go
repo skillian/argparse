@@ -116,7 +116,7 @@ func (p *ArgumentParser) AddArgument(options ...ArgumentOption) (*Argument, erro
 		}
 		a.Dest = dest
 	}
-	if len(a.MetaVar) == 0 && a.Nargs != 0 {
+	if len(a.MetaVar) == 0 && a.Nargs != 0 && a.Choices == nil {
 		upper := strings.ToUpper(a.Dest)
 		if a.Nargs < 0 || a.Nargs == 1 {
 			a.MetaVar = []string{upper}

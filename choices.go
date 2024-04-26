@@ -7,6 +7,7 @@ import "fmt"
 type Choice struct {
 	Key   string
 	Value interface{}
+	Help  string
 }
 
 // ArgumentChoices keeps track of a collection of argument choices.

@@ -74,12 +74,28 @@ func (s *helpingState) format() (v string, err error) {
 					sb.WriteString(", ")
 				}
 				sb.WriteString(opt)
-				sb.WriteByte(' ')
-				for j, mv := range a.MetaVar {
-					if j > 0 {
-						sb.WriteByte(' ')
+				if len(a.MetaVar) > 0 {
+					sb.WriteByte(' ')
+					for j, mv := range a.MetaVar {
+						if j > 0 {
+							sb.WriteByte(' ')
+						}
+						sb.WriteString(mv)
 					}
-					sb.WriteString(mv)
+				}
+			}
+			if a.Choices != nil {
+				for j, limit := 0, a.Choices.Len(); j < limit; j++ {
+					ch := a.Choices.At(j)
+					if j == 0 {
+						sb.WriteString(" [ ")
+					} else {
+						sb.WriteString(" | ")
+					}
+					sb.WriteString(ch.Key)
+					if j == limit-1 {
+						sb.WriteString(" ]")
+					}
 				}
 			}
 		})
@@ -136,6 +152,32 @@ func (s *helpingState) addArguments(prefix string, args []*Argument, sel helpHea
 			s.writeStrings(s.colspcs[:s.indent-s.coli], v, "\n")
 			s.coli = 0
 		}
+		if a.Choices != nil {
+			s.writeSpaces(s.indent)
+			s.writeString("choices:\n")
+			choiceIndent := 2 * s.indent
+			for i, limit := 0, a.Choices.Len(); i < limit; i++ {
+				c := a.Choices.At(i)
+				s.writeSpaces(s.indent)
+				s.writeString(c.Key)
+				s.coli = s.indent + len(c.Key)
+				if s.coli < choiceIndent {
+					s.writeSpaces(choiceIndent - s.coli)
+				} else {
+					s.writeByte('\n')
+					s.writeSpaces(choiceIndent)
+				}
+				s.coli = choiceIndent
+				for _, v := range strings.Split(textwrap.String(
+					c.Help, s.columns-choiceIndent,
+				), "\n") {
+					s.writeSpaces(choiceIndent - s.coli)
+					s.writeString(v)
+					s.writeByte('\n')
+					s.coli = 0
+				}
+			}
+		}
 	}
 	s.writeStrings("\n")
 }
@@ -147,6 +189,14 @@ func (s *helpingState) argUsage(a *Argument) string {
 	if a.Optional() {
 		parts = append(parts, "[", getShortestArgOptionString(a))
 		parts = append(parts, a.MetaVar...)
+		if a.Choices != nil {
+			for i, limit := 0, a.Choices.Len(); i < limit; i++ {
+				if i > 0 {
+					parts = append(parts, "|")
+				}
+				parts = append(parts, a.Choices.At(i).Key)
+			}
+		}
 		parts = append(parts, "]")
 	} else {
 		parts = a.MetaVar
@@ -154,7 +204,37 @@ func (s *helpingState) argUsage(a *Argument) string {
 	return strings.Join(parts, " ")
 }
 
+// TODO: name these write* methods mustWrite* because they panic
+
+func (s *helpingState) writeByte(b byte) {
+	if err := s.builder.WriteByte(b); err != nil {
+		panic(err)
+	}
+}
+
+func (s *helpingState) writeSpaces(n int) {
+	s.builder.Grow(n)
+	for i := 0; i < n; i++ {
+		if err := s.builder.WriteByte(' '); err != nil {
+			panic(err)
+		}
+	}
+}
+
+func (s *helpingState) writeString(v string) {
+	if _, err := s.builder.WriteString(v); err != nil {
+		panic(err)
+	}
+}
+
 func (s *helpingState) writeStrings(vs ...string) {
+	{
+		n := 0
+		for _, v := range vs {
+			n += len(v)
+		}
+		s.builder.Grow(n)
+	}
 	for _, v := range vs {
 		if _, err := s.builder.WriteString(v); err != nil {
 			panic(err)

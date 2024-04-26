@@ -371,6 +371,9 @@ func getArgValueForNS(a *Argument, vs []interface{}) interface{} {
 // Choices sets the argument's choices.
 func Choices(choices ...Choice) ArgumentOption {
 	return func(a *Argument) error {
+		if len(a.MetaVar) != 0 {
+			return errors.Errorf("Choices take the place of a MetaVar")
+		}
 		a.Choices = NewChoices(choices...)
 		return nil
 	}
@@ -419,6 +422,9 @@ func Help(format string, args ...interface{}) ArgumentOption {
 // MetaVar sets the help string of an argument.
 func MetaVar(v ...string) ArgumentOption {
 	return func(a *Argument) error {
+		if a.Choices != nil {
+			return errors.Errorf("Choices take the place of a MetaVar")
+		}
 		return setValue(&a.MetaVar, "MetaVar", v)
 	}
 }
